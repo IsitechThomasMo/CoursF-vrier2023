@@ -76,6 +76,8 @@ db.runCommand
 
 #### Les collations
 
+Une collation est un objet qui permet de générer la version locale, en adaptant certains éléments à chaque langue
+
 ``` javascript
 {
 	**locale**: < string >,
@@ -221,6 +223,7 @@ db.maCollection.find({"age": 76}, {"prenom": true}) // Affichera le prénom des 
 ```
 
 On retrouve d'autres opérateurs tels que:
+- $eq : égal à
 - $ne : différent de
 - $gt : supérieur à,  $gte : supérieur ou égal
 - $lt : inférieur à, $lte : inférieur ou égal
@@ -389,3 +392,454 @@ db.eleves.find({ "notes.note": {$gt: 10, $lte: 15 } })
 ``` javascript
 curseur.sort(<tri>)
 ```
+
+##### Les index
+
+Algolia et elk pour elasic Surge
+
+La nature de votre application devra impacter votre logique d'indexation: est-elle orientée écriture (write-heavy) ou lecture (read-heavy) ?
+
+``` javascript
+db.collection.createIndex(<champ + type>, <options?>)
+
+db.personnes.createIndex({"age: -1"})
+
+{
+	"createCollectionAutomatically": false,
+	"numIndexesBefore": 1,
+	..
+	ok:1
+}
+
+db.personnes.getIndexes()
+
+db.personnes.dropIndex("age -1")
+db.personnes.createIndex({"age": -1}, {"name": "index_age"})
+```
+
+Un index peut porter sur un ou plusieurs champs, ce dernier est ce qu'on applle un index composé
+
+Attention car une recréation d'index peut avoir un impact très négatif sur les performances du serveur, donc avec du trafic important il vaut mieux faire cela en période de nuit ou de maintenance.
+
+``` javascript
+db.personnes.createIndex({"age": -1, "nom": 1}, { "name": "idx_age_nom", collation: {locale: "fr"} })
+```
+
+MongoDB permet l'utilisation de deux types d'index qui permettent de gérer les requêtes géospatiales::
+- Les index de type '2dsphere' sont utilisés par des requêtes géospatiales intervenant sur une surface sphérique.
+- Les index '2d' concernent des requêtes intervennant sur un plan Euclidien.
+
+Pour un champ nommé 'donneesSpatiales' d'une collection 'cartographie' vous pouvez par exemple créer un index de type '2d' avec la commande:
+
+``` javascript
+db.cartographe.createIndex({"donnnesSpatiales": "2d" })
+```
+
+Pour la création d'un index '2dsphere' on utilisera plutôt:
+
+``` javascript
+db.cartographie.creatIndex({"donnesSpatiales": "2dsphere" })
+```
+
+Les index 2d font intervenir des coordonnées de type 'legacy'
+
+``` javascript
+	db.plan.insertOne({ "nom": "firstPoint", "geodata": [1,1] })
+
+	db.plan.insertOne({ "nom": "firstPoint_bis", "geodata": [4.7, 44.5] })
+
+	db.plan.insertOne({ "nom": "firstPoint_bis", "geodata": { "lon": 4.7, "lat": 44.5 } })
+```
+
+#### Les objets GeoJSON
+
+``` javascript
+{ type: <type d'objet>, coordinates: <coordonnees> }
+```
+
+##### Le type Point
+
+``` javascript
+{
+"type": "Point",
+"coordinates": [ 14.0, 1.0]
+}
+```
+
+##### Le type MultiPoint
+
+``` javascript
+{
+	"type": "MultiPoint",
+	"coordinates": [
+		[13.0, 1.0], [13.0, 3.0]
+	]
+}
+```
+
+##### Le type LineString
+
+``` javascript
+{
+	"type": "LineString",
+	"coordinates": [
+		[13.0, 1.0], [13.0, 3.0]
+	]
+}
+```
+
+##### Le type Polygon
+
+``` javascript
+{
+	"type": "Polygon",
+	"coordinates": 
+	[
+		[
+			[13.0, 1.0], [13.0, 3.0]
+		],
+		[
+			[13.0, 1.0], [13.0, 3.0]
+		]
+	]
+}
+```
+
+Création d'index:
+
+``` javascript
+db.avignon.createIndex({"localisation": "2dsphere"})
+
+db.avignon2d.createIndex({"localisation": "2d"})
+```
+
+##### L'opérateur $nearSphere
+
+``` javascript
+{
+	$nearSphere: {
+		$geometry: {
+			type: "Point",
+			coordinates: [<longitude>, <latitude>]
+		},
+		$minDistance: <distance en metres>,
+		$maxDistance: <distance en metres>
+	}
+}
+
+{
+	$nearSphere: [ <x>, <y> ],
+	$minDistance: <distance en radians>,
+	$maxDistance: <distance en radians>
+}
+```
+
+``` javascript
+var opera = { type: "Point", coordinates: [43.949749, 4.805325] }
+```
+Effectuer une requête sur la collection avignon
+
+``` javascript
+db.avignon.find(
+{
+	"localisation": {
+		$nearSphere: {
+			$geometry: opera
+		}
+	}, {"_id": 0, "nom": 1}
+})
+```
+
+##### L'opérateur $geoWithin
+
+Sélectionne les documents avec des données géospatiales qui existent entièrement dans une forme spécifique.
+
+Cet opérateur n'effectue aucun tri et ne nécessite pas la création d'un index géospatial, on l'utilise de la manbière suivante:
+
+``` javascript
+{
+	<champ des documents contenant les coordonnées>:
+	{
+		$geoWithin: 
+		{
+			<operateur de forme>: <coordonnes>
+		}
+	}
+}
+```
+
+Création d'un polygone pour notre exemple :
+``` javascript
+var polygone = [
+	[43.9548 , 4.80143],
+	[43.95475 , 4.80779],
+	[43.95045 , 4.81097],
+	[43.4657 , 4.80449]
+]
+
+db.avignon.find(
+{
+	"localisation":
+	{
+		$geowithin:
+		{
+			$geometry:
+			{
+				type: "Polygon",
+				coordinates: [polygone]
+			}
+		}
+	}
+}, {"_id": 0, "nom": 1}
+)
+```
+
+La requête suivante utilise ce polygone :
+``` javascript
+db.avignon2d.find(
+{
+	"localisation":
+	{
+		$geowithin:
+		{
+			$polygon: polygone
+		}
+	}
+})
+```
+
+## Le framework d'aggrégation
+
+MongoDB met à disposition un puissant outil d'analyse et de traitement de l'information: le pipeline d'aggrégation (ou framework)
+
+Métaphore du tapis roulant d'usine
+
+Méthode utilisée:
+
+``` javascript
+db.collection.aggregate(pipeline, options)
+```
+- pipelin: désigne un tableau d'étapes
+- options: désigne un document
+
+Parmi les options, nous retiendrons:
+- collation, permet d'affecter une collation à l'opération d'aggrégation
+- bypassDocumentValidation: fonctionne avec un opérateur appelé $out et permet de passer au travers de la validation des documents.
+- allowDiskUse: donne la possibilité de faire déborder les opérations d'écriture sur le disque
+
+Vous pouvez appeler aggregate sans argument:
+``` javascript
+db.personnes.aggregate()
+```
+
+Au sein du shell, nous allons créer une variable pipeline:
+
+``` javascript
+var pipeline = []
+db.personnes.aggregate(pipeline)
+db.personnes.aggregate(
+	pipeline,
+	{
+		"collation":
+		{
+			"locale": "fr"
+		}
+	}
+)
+```
+
+Le filtrage avec $match
+
+Cela permet
+
+
+
+
+Commençons par la première étape
+
+``` javascript
+var pipeline = [{
+	$match : {
+		"interets: "jardinage"
+	}
+}]
+
+db.personnes.aggregate(pipeline)
+```
+
+Cale corrsepond à la requête:
+``` javascript
+db.personnes.find({ "interets": "jardinage"})
+```
+
+``` javascript
+var pipeline = [{
+	$match : {
+		"interets: "jardinage"
+	},
+	$match : {
+		"nom": /^L/,
+		"age": {$gt: 70}
+	},
+}]
+
+db.personnes.aggregate(pipeline)
+```
+
+Sélection/modification de champs: $project
+syntaxe:
+
+``` javascript
+{ $project: { <spec> } }
+```
+
+``` javascript
+var pipeline = [
+{
+	$match : 
+	{
+		"interets: "jardinage"
+	},
+	$project : 
+	{
+		"_id": 0,
+		"nom": 1,
+		"prenom": 1,
+		"super_senior": { $get: ["$age", 70] }
+	},
+	{
+		$match: { "super_senior": true}
+	}
+}]
+
+db.personnes.aggregate(pipeline)
+```
+
+``` javascript
+var pipeline = [
+{
+	$match : 
+	{
+		"interets: "jardinage"
+	},
+	$project : 
+	{
+		"_id": 0,
+		"nom": 1,
+		"prenom": 1,
+		"ville": "$adresse.ville"
+	},
+	{
+		$match:
+		{ 
+			"ville": {$exists: true}
+		}
+	}
+}]
+```
+
+
+### L'opérateur $addFields
+
+``` javascript
+{ $addFields: { <nouveau champ> : <expression>, ... } }
+```
+
+``` javascript
+db.personnes.aggregate([
+{
+	$addFields:
+	{
+		"numero_secu_s": ""
+	}
+}
+])
+
+db.personnes.aggregate([
+{
+	$project:
+	{
+		......
+		"numero_secu_s": 1
+	}
+}
+])
+```
+
+#### L'opérateur $group
+
+Regroupe des documents et crée un nouveau document par groupe
+
+``` javascript
+{
+	$group: {
+		"_id": <expressions>, // Cette ligne est obligatoire
+		<champ>: { <operateur d'accumulation> }
+	}
+}
+```
+
+Opérateur d'accumulation: `$push`, `$sum`, `$avg`, `$min`, `$max`
+
+``` javascript
+var pipeline = [{
+	$group: {
+		"_id": "$age",
+		"nombre_personnes": { $sum: 1 }
+	}
+},{
+	$sort: {
+		"nombre_personnnes": 
+	}
+}
+}]
+
+db.personnes.aggregate(pipeline)
+
+
+db.personnes.aggregate([
+	{
+		$sortByCount: "$age"
+	}
+])
+
+
+var pipeline = [{
+	$group:
+	{
+		"_id": null,
+		"nombre_personnes": { $sum: 1}
+	}
+}]
+
+
+var pipeline = [{
+	$match:
+	{
+		"age": { $exists: true}
+	},
+	{
+		$group: 
+		{
+			"_id": null,
+			"avg": { $avg: "$age" }
+		}
+	},
+	{
+		$project:
+		{
+			"_id": 0,
+			"Age_moyen": { $ceil: '$avg' }
+		}
+	}
+}]
+```
+
+
+
+
+
+
+Bonus expliquez ce qui se passe plus bas :  
+
+db.achats.aggregate([{     $addFields: {         "total_achats": { $sum: "$achats" },         "total_reduc": { $sum: "$reductions" }     }  },  {     $addFields: {         "total_final": { $subtract: [ "$total_achats",  "$total_reduc" ] }      }  }  ,  {     $project: {         "_id": 0,         "nom": 1,         "prenom": 1,         "Total payé": { $divide:[             {                 $subtract: [{                     $multiply: ['$total_final', 100]                 },                 {                     $mod: [{                         $multiply: ['$total_final', 100]                     }, 1]                 }                 ]             }, 100]         }     }  }  ])

@@ -34,7 +34,8 @@ db.employees.find(
 Écrivez une requête pour trier les documents dans la collection "employees" par salaire décroissant.
 
 ``` javascript
-db.employees.aggregate([ { 
+db.employees.aggregate([ 
+{ 
 	$sort: 
 	{
 		"$salary": 1
@@ -46,7 +47,8 @@ db.employees.aggregate([ {
 Écrivez une requête pour sélectionner uniquement le nom et le job de chaque document.
 
 ``` javascript
-db.employees.find({
+db.employees.find(
+{
 	"_id": {$exists: 1}
 },
 {
@@ -60,7 +62,8 @@ db.employees.find({
 Écrivez une requête pour compter le nombre d'employés par poste.
 
 ``` javascript
-db.employees.aggregate({ 
+db.employees.aggregate(
+{ 
 	$group: 
 	{ 
 		_id: "$job", count: { $sum: 1 } 
@@ -72,8 +75,11 @@ db.employees.aggregate({
 Écrivez une requête pour mettre à jour le salaire de tous les développeurs à 80000.
 
 ``` javascript
-db.employees.updateMany({
-job:"Developer"
+db.employees.updateMany(
+{
+	job:"Developer"
 },
-{$set: { "salary": 80000} })
+{
+	$set: { "salary": 80000} 
+})
 ```
