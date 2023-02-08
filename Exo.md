@@ -421,7 +421,7 @@ db.salles.updateMany(
 	}
 },
 {
-	$upsert: true
+	"upsert": true
 })
 ```
 
@@ -431,17 +431,9 @@ db.salles.updateMany(
 Affichez le décompte des documents pour lesquels le champ _id est de type « objectId ».
 
 ``` javascript
-db.salles.find(
+db.salles.countDocuments(
 {
-	"nom":{ $regex: /^Z/, $options:'i'}
-},
-{
-	$set:
-	{
-		"nom": "Pub Z",
-		"capacite": 50,
-		"smac": false
-	}
+	"_id":{ $type: "objectId"}
 })
 ```
 
@@ -450,14 +442,57 @@ db.salles.find(
 
 Pour les documents dont le champ _id n’est pas de type « objectId », affichez le nom de la salle ayant la plus grande capacité. Pour y parvenir, vous effectuerez un tri dans l’ordre qui convient tout en limitant le nombre de documents affichés pour ne retourner que celui qui comporte la capacité maximale.
 
+``` javascript
+db.salles.find(
+{
+	"_id": { $not:{ $type: "objectId"} }
+},
+{
+	"_id": 0,
+	"nom": 1
+}).sort( { "capacite":-1 } ).limit(1)
+```
+
+
 #### Exercice 23
 
 Remplacez, sur la base de la valeur de son champ _id, le document créé à l’exercice 20 par un document contenant seulement le nom préexistant et la capacité, que vous monterez à 60 personnes.
+
+``` javascript
+db.salles.updateOne(
+{
+	"_id": ObjectId("63e3c8d14ffd7ed78ca494d1")
+},
+{
+	$set: { "capacite": 60 },
+	$unset: { "smac":"" }
+})
+```
+
 
 #### Exercice 24
 
 Effectuez la suppression d’un seul document avec les critères suivants : le champ _id est de type « objectId » et la capacité de la salle est inférieure ou égale à 60 personnes.
 
+``` javascript
+db.salles.deleteOne(
+{
+	"_id": { $type: "objectId" },
+	"capacite": { $lte: 60 }
+})
+```
+
+
 #### Exercice 25
 
 À l’aide de la méthode permettant de trouver un seul document et de le mettre à jour en même temps, réduisez de 15 personnes la capacité de la salle située à Nîmes.
+
+``` javascript
+db.salles.updateOne(
+{
+	"adresse.ville": "Nîmes"
+},
+{
+	$inc: { "capacite": -15}
+})
+```
