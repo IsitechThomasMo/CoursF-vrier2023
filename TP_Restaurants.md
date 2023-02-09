@@ -118,10 +118,10 @@ db.uneEtoile.getIndexes()
 db.uneEtoile.aggregate([
 {
 	$group:
-	    {
-			$avg: {"note"}}
-		}
+	{
+		$avg: {"note"}
 	}
+}
 ])
 ```
 

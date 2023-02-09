@@ -1,6 +1,6 @@
 Voici la base de donnees qui permet d'effectuer la serie d'exercices :
 
-```
+``` javascript
 db.salles.insertMany([ 
    { 
        "_id": 1, 
