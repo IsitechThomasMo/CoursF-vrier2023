@@ -106,6 +106,23 @@ db.uneEtoile.getIndexes()
 
 ##### A. Recherchez les restaurants qui se trouvent à moins de 2 km d'une certaine localisation. Utilisez la méthode find () avec un opérateur géospatial pour trouver les restaurants à l'intérieur d'un cercle.
 
+``` javascript
+db.uneEtoile.find(
+{
+	//location: { type: "Point", coordinates: [2.354649327358487, 48.84371413719157] }:
+	//{
+		$geoWithin:
+		{
+			$geometry:
+			{
+				type: "Point",
+				coordinates: [2.354649327358487,48.84371413719157]
+			}
+		}
+	//}
+})
+```
+
 ##### B. Recherchez les restaurants qui se trouvent dans un certain rayon autour d'un point de localisation spécifique. Utilisez la méthode find () avec un opérateur géospatial pour trouver les restaurants à l'intérieur d'un cercle.
 
 
